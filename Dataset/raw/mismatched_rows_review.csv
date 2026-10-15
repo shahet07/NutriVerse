@@ -1,0 +1,16 @@
+recipe_original,recipe_clean,best_match_clean,matched_original_name,token_set_score,wratio_score,food_token_score,negative_penalty,composite_score,token_overlap
+ Tomato Noodle Soup Recipe,tomato noodle soup,cold tomato soup,Cold tomato soup,82.35,78.24,1,0,83.25,0.67
+Pakki Mutton Biryani Recipe,pakki mutton biryani,mutton biryani biriyani,Mutton biryani/biriyani,82.35,78.24,1,0,83.25,0.67
+Tomato Noodle Soup recipe,tomato noodle soup,cold tomato soup,Cold tomato soup,82.35,78.24,1,0,83.25,0.67
+Haryali Seekh Kebab Recipe,haryali seekh kebab,soya seekh kebab,Soya seekh kebab,81.48,80.0,1,0,83.53,0.67
+Aloo Bread Pakora Recipe,aloo bread pakora,bread pakora pakoda,Bread pakora/pakoda,83.33,79.17,1,0,84.11,0.67
+Stuffed Jackfruit Curry Recipe (Stuffed Jackfruit Curry),stuffed jackfruit curry,jackfruit kofta curry,Jackfruit kofta curry (Kathal ka kofta curry),83.33,79.17,1,0,84.11,0.67
+Vegetarian Laksa Curry Recipe,vegetarian laksa curry,vegetarian egg kofta curry,Vegetarian egg kofta curry,84.21,80.0,1,0,84.88,0.67
+Asian Style Stuffed Omelette Recipe,asian stuffed omelette,stuffed egg omelette omlet,Stuffed egg omelette/omlet,84.21,80.0,1,0,84.88,0.67
+Pineapple Paneer Darts Recipe,pineapple paneer darts,paneer apple and pineapple salad,"Paneer, apple and pineapple salad",84.21,80.0,1,0,84.88,0.67
+Pumpkin Kofta Curry Recipe,pumpkin kofta curry,pea kofta curry,Pea kofta curry (Matar kofta curry),84.62,80.38,1,0,85.24,0.67
+Nawabi Kofta Curry Recipe,nawabi kofta curry,pea kofta curry,Pea kofta curry (Matar kofta curry),84.62,80.38,1,0,85.24,0.67
+Hariyali Chicken Tikka Recipe,hariyali chicken tikka,hariyali fish tikka,Hariyali Fish Tikka,84.85,80.61,1,0,85.45,0.67
+Spicy Peanut Butter Recipe,spicy peanut butter,peanut butter cucumber sandwich,Peanut butter cucumber sandwich,81.25,85.5,1,0,85.65,0.67
+Mutton Shami Kebab Recipe,mutton shami kebab,mutton seekh kebab,Mutton seekh kebab,83.33,83.33,1,0,85.8,0.67
+Tawa Paratha Recipe - Plain Paratha,tawa paratha plain paratha,plain parantha paratha,Plain parantha/paratha,83.87,83.12,1,0,85.98,0.67

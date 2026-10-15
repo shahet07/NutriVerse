@@ -1,0 +1,93 @@
+# ══════════════════════════════════════════════════════════════════════
+# Docker build context exclusions
+# ══════════════════════════════════════════════════════════════════════
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation and project files
+README.md
+LICENSE
+Docs/
+*.md
+.github/
+
+# Notebooks and exploratory analysis
+Notebooks/
+*.ipynb
+.ipynb_checkpoints/
+
+# Dataset files (using cloud DB, don't need local data)
+Dataset/
+
+# Testing
+tests/
+.pytest_cache/
+pytest.ini
+.coverage
+htmlcov/
+
+# Frontend — source is needed for the Vite build stage. Exclude heavy
+# host-side artifacts so the build stage produces them fresh inside Docker.
+Frontend/node_modules/
+Frontend/dist/
+Frontend/release/
+Frontend/tsconfig.tsbuildinfo
+AuthHost/
+
+# Build artifacts (Python)
+build/
+*.egg-info/
+
+# Local environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+temp_uploads/*
+!temp_uploads/.gitkeep
+
+# Old model files (keep only the ConvNeXt model we need)
+Src/Image_classifier/models/efficientb4_*.h5
+Src/Image_classifier/models/meta.json
+
+# Scripts (for local development only)
+scripts/
+
+# Training and evaluation code (not needed in production)
+Src/Image_classifier/train.py
+Src/Image_classifier/evaluate.py
+Src/Image_classifier/data_loader.py
+
+# Docker files (don't copy into themselves)
+Dockerfile
+.dockerignore
+docker-compose.yml

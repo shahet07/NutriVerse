@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Privacy Policy — NutriVerse</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #090909;
+      --surface:  #111111;
+      --elevated: #1a1a1a;
+      --border:   rgba(255,255,255,0.08);
+      --text:     #f0f0f0;
+      --muted:    #888;
+      --dim:      #555;
+      --accent:   #63b3ed;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      padding: 48px 24px 80px;
+    }
+
+    .wrap {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 48px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+    }
+
+    .header-name {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .header-name span { color: var(--muted); font-weight: 400; }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 8px;
+    }
+
+    .meta {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 40px;
+    }
+
+    h2 {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      margin: 36px 0 10px;
+      letter-spacing: -0.01em;
+    }
+
+    p {
+      font-size: 14px;
+      color: #bbb;
+      margin-bottom: 12px;
+    }
+
+    ul {
+      padding-left: 20px;
+      margin-bottom: 12px;
+    }
+
+    li {
+      font-size: 14px;
+      color: #bbb;
+      margin-bottom: 6px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin: 24px 0;
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 12px;
+    }
+
+    .perm-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .perm-row:last-child { border-bottom: none; }
+
+    .perm-name {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--accent);
+      min-width: 120px;
+      padding-top: 1px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    .perm-desc {
+      font-size: 13px;
+      color: #aaa;
+      line-height: 1.5;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    a:hover { text-decoration: underline; }
+
+    .footer {
+      margin-top: 56px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--dim);
+    }
+
+    .tag {
+      display: inline-block;
+      background: var(--elevated);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      padding: 2px 7px;
+      margin-right: 4px;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <img class="header-logo" src="icons/icon128.png" alt="NutriVerse" />
+    <div class="header-name">NutriVerse</div>
+  </div>
+
+  <h1>Privacy Policy</h1>
+  <p class="meta">Effective date: April 11, 2026 &nbsp;·&nbsp; Version 2.0</p>
+
+  <p>NutriVerse ("the Extension") is a Chrome browser extension that provides Indian food nutrition intelligence — letting you look up nutritional information for any dish, classify food images, and track what you eat. This policy explains what data we collect, how we use it, and what controls you have.</p>
+
+  <h2>1. Data We Collect</h2>
+
+  <p>We collect only what is necessary to provide the service:</p>
+
+  <ul>
+    <li><strong>Account information</strong> — your email address and display name when you sign in via Google or email/password. Stored in Firebase Authentication.</li>
+    <li><strong>Food queries</strong> — text you type into the lookup field (e.g., "Dal Makhani") and food images you upload for classification. These are sent to our backend to generate nutrition results.</li>
+    <li><strong>Like / dislike interactions</strong> — which results you found helpful. Stored against your account in our database.</li>
+    <li><strong>Authentication tokens</strong> — short-lived JWT access token and refresh token, stored locally in <span class="tag">chrome.storage.local</span> on your device only.</li>
+    <li><strong>API URL preference</strong> — if you customise the backend URL in Options, it is stored in <span class="tag">chrome.storage.sync</span> (synced across your Chrome profile).</li>
+    <li><strong>Rate-limit counter</strong> — a per-session request counter stored locally to prevent API abuse. Never transmitted.</li>
+  </ul>
+
+  <p>We do <strong>not</strong> collect: browsing history, page content, keystrokes, clipboard data, or any information from pages you visit beyond what you explicitly submit to the extension.</p>
+
+  <h2>2. How We Use Your Data</h2>
+
+  <ul>
+    <li>To authenticate you and maintain your session across browser restarts.</li>
+    <li>To query our nutrition database and AI model and return results to you.</li>
+    <li>To personalise your experience (liked/disliked items influence recommendations).</li>
+    <li>To enforce fair-use rate limits (20 requests per 60 seconds).</li>
+  </ul>
+
+  <p>We do not sell, rent, or share your personal data with third parties for advertising purposes.</p>
+
+  <h2>3. Third-Party Services</h2>
+
+  <div class="card">
+    <div class="card-title">Services used</div>
+
+    <div class="perm-row">
+      <div class="perm-name">Firebase</div>
+      <div class="perm-desc">Google Firebase Authentication handles sign-in. Your email and UID are stored in Firebase. Firebase is subject to <a href="https://policies.google.com/privacy" target="_blank">Google's Privacy Policy</a>.</div>
+    </div>
+    <div class="perm-row">
+      <div class="perm-name">Google OAuth</div>
+      <div class="perm-desc">Used only if you choose "Continue with Google." We receive your email, name, and profile photo from Google. No offline access is requested.</div>
+    </div>
+    <div class="perm-row">
+      <div class="perm-name">NutriVerse Backend</div>
+      <div class="perm-desc">Our API (hosted on Microsoft Azure, Southeast Asia region) processes queries and images. Food text and images you submit are sent here. Images are not stored permanently — they are processed in-memory and discarded.</div>
+    </div>
+    <div class="perm-row">
+      <div class="perm-name">Neo4j (Graph DB)</div>
+      <div class="perm-desc">Stores your account profile and interaction history (likes/dislikes) against your Firebase UID. No personally identifiable food queries are stored.</div>
+    </div>
+  </div>
+
+  <h2>4. Permissions Explained</h2>
+
+  <div class="card">
+    <div class="card-title">Chrome permissions requested</div>
+
+    <div class="perm-row">
+      <div class="perm-name">contextMenus</div>
+      <div class="perm-desc">Adds "Look up nutrition" and "Classify food image" options to the right-click context menu on any page, so you can analyse selected text or images without opening the popup.</div>
+    </div>
+    <div class="perm-row">
+      <div class="perm-name">storage</div>
+      <div class="perm-desc">Stores your authentication tokens, session state, and preferences locally on your device. No data in storage is transmitted to third parties.</div>
+    </div>
+    <div class="perm-row">
+      <div class="perm-name">scripting</div>
+      <div class="perm-desc">Injects the nutrition results panel into the current page when triggered via the context menu. The panel is built with Shadow DOM to prevent interference with the host page's styles.</div>
+    </div>
+    <div class="perm-row">
+      <div class="perm-name">identity</div>
+      <div class="perm-desc">Used exclusively to launch Google's OAuth sign-in flow when you choose "Continue with Google." Not used to access any Google account data beyond your basic profile.</div>
+    </div>
+    <div class="perm-row">
+      <div class="perm-name">host_permissions<br/>&lt;all_urls&gt;</div>
+      <div class="perm-desc">Required so the nutrition results panel and context menus work on any website — for example, classifying a food image on a recipe blog or Zomato. The extension only reads data you explicitly select or submit; it does not read page content passively.</div>
+    </div>
+  </div>
+
+  <h2>5. Data Retention</h2>
+
+  <ul>
+    <li><strong>Auth tokens</strong> — stored locally on your device; deleted immediately on sign-out.</li>
+    <li><strong>Account data</strong> — retained in Firebase and our database while your account is active. You may request deletion at any time (see Section 7).</li>
+    <li><strong>Food images</strong> — processed in-memory; not stored on our servers.</li>
+    <li><strong>Queries</strong> — not logged or stored on our servers.</li>
+  </ul>
+
+  <h2>6. Security</h2>
+
+  <p>Authentication tokens are stored in <span class="tag">chrome.storage.local</span>, which is encrypted by Chrome using your OS profile credentials. All communication between the extension and our backend uses HTTPS. Firebase tokens are verified server-side before any data is returned.</p>
+
+  <h2>7. Your Rights</h2>
+
+  <ul>
+    <li><strong>Access</strong> — you can see your account data at any time by signing into the NutriVerse app.</li>
+    <li><strong>Deletion</strong> — to delete your account and all associated data, contact us at the email below. We will process requests within 30 days.</li>
+    <li><strong>Sign-out</strong> — signing out via the extension immediately removes all locally stored tokens.</li>
+  </ul>
+
+  <h2>8. Children's Privacy</h2>
+
+  <p>NutriVerse is not directed at children under 13. We do not knowingly collect personal information from children. If you believe a child has provided us with personal data, please contact us and we will delete it promptly.</p>
+
+  <h2>9. Changes to This Policy</h2>
+
+  <p>We may update this policy as the extension evolves. The effective date at the top of this page will reflect the latest revision. Continued use of the extension after changes constitutes acceptance of the revised policy.</p>
+
+  <h2>10. Contact</h2>
+
+  <p>Questions or data deletion requests: <a href="mailto:kashyapk1305@gmail.com">kashyapk1305@gmail.com</a></p>
+
+  <div class="footer">
+    &copy; 2026 NutriVerse &nbsp;·&nbsp; <a href="https://github.com/KAshyapk07/NutriSense-AI">GitHub</a>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-bg: #FAFAFA;
+    --color-surface: #FFFFFF;
+    --color-text: #111111;
+    --color-text-muted: #6B7280;
+    --color-border: #E5E7EB;
+    --color-accent: #000000;
+    --color-accent-contrast: #FFFFFF;
+  }
+
+  .dark {
+    --color-bg: #0A0A0A;
+    --color-surface: #141414;
+    --color-text: #F5F5F5;
+    --color-text-muted: #9CA3AF;
+    --color-border: #2A2A2A;
+    --color-accent: #FFFFFF;
+    --color-accent-contrast: #000000;
+  }
+
+  body {
+    @apply bg-[var(--color-bg)] text-[var(--color-text)] font-sans antialiased transition-colors duration-300;
+    margin: 0;
+    padding: 0;
+    font-size: 16px;
+    line-height: 1.6;
+  }
+
+  html {
+    font-size: 16px;
+  }
+
+  * {
+    @apply border-[var(--color-border)];
+  }
+}
+
+@layer components {
+  .text-muted {
+    color: var(--color-text-muted);
+  }
+
+  .bg-surface {
+    background-color: var(--color-surface);
+  }
+
+  .bg-main {
+    background-color: var(--color-bg);
+  }
+
+  .text-accent {
+    color: var(--color-accent);
+  }
+
+  .bg-accent {
+    background-color: var(--color-accent);
+  }
+
+  .bg-accent-contrast {
+    background-color: var(--color-accent-contrast);
+  }
+
+  .text-accent-contrast {
+    color: var(--color-accent-contrast);
+  }
+
+  .border-theme {
+    border-color: var(--color-border);
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* Hide Gemini watermark */
+.gemini-logo,
+[data-gemini],
+img[alt*="Gemini"],
+div[class*="gemini"] {
+  display: none !important;
+  visibility: hidden !important;
+}
