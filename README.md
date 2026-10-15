@@ -174,7 +174,7 @@ NutriSense-AI/
 ### Setup
 
 ```bash
-git clone https://github.com/KAshyapk07/NutriSense-AI.git
+git clone https://github.com/shahet07/NutriSense-AI.git
 cd NutriSense-AI
 
 # Backend
@@ -300,7 +300,7 @@ Schemas live under `Backend/schemas/`. Full interactive docs: `/docs` and `/redo
 - Custom classification head: `LayerNorm → Dropout(0.3) → Linear(in→512) → GELU → Dropout(0.2) → Linear(512→num_classes)`, `drop_path_rate=0.2`.
 - Inference transform: `Resize(256) → CenterCrop(224) → ToTensor → ImageNet normalize`.
 - Returns top-K predictions with confidence; classes map directly to `ImageClass` nodes in the graph for instant nutrition lookup.
-- Checkpoint hosted on Hugging Face (`Kashyapk07/NutriSense_ConvNext_Small_Best`) and pulled at container build.
+- Checkpoint hosted on Hugging Face (`shahet07/NutriSense_ConvNext_Small_Best`) and pulled at container build.
 
 **Speech-to-text — faster-whisper**
 - Model `small.en`, `int8` quantization, CPU.
