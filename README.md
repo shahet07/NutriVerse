@@ -358,10 +358,4 @@ The repository ships:
 
 ---
 
-## License
 
-Released under the **MIT License** — see [`LICENSE`](LICENSE).
-
-The trained model weights, recipe dataset, and brand assets (icons, store listings) are **not** covered by the MIT License and remain © 2026 Kashyap K. Contact for any commercial reuse.
-
----
