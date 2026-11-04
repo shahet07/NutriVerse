@@ -75,10 +75,28 @@ class ImageModelWrapper:
 _wrapper: Optional[ImageModelWrapper] = None
 
 
+def _is_lfs_pointer(path: str) -> bool:
+    with open(path, "rb") as f:
+        return f.read(40).startswith(b"version https://git-lfs")
+
+
 def init() -> None:
+    """Load the classifier. If it is unavailable, only photo recognition is off."""
     global _wrapper
+    if not os.path.isfile(MODEL_PATH) or _is_lfs_pointer(MODEL_PATH):
+        logger.warning(
+            "No model weights at %s (missing or a Git LFS pointer): "
+            "photo recognition is disabled. Set MODEL_PATH to enable it.",
+            MODEL_PATH,
+        )
+        return
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    ckpt = torch.load(MODEL_PATH, map_location="cpu", weights_only=False)
+    try:
+        # weights_only=True: a checkpoint is data and must not be able to run code.
+        ckpt = torch.load(MODEL_PATH, map_location="cpu", weights_only=True)
+    except Exception:
+        logger.exception("Could not load %s: photo recognition is disabled.", MODEL_PATH)
+        return
     class_names: list[str] = list(ckpt["class_names"])
     model = _build_convnext(len(class_names))
     model.load_state_dict(ckpt["model_state_dict"])
@@ -94,7 +112,6 @@ def init() -> None:
     )
 
 
-def get_image_model() -> ImageModelWrapper:
-    if _wrapper is None:
-        raise RuntimeError("Image model is not initialized.")
+def get_image_model() -> Optional[ImageModelWrapper]:
+    """Return the classifier, or None when photo recognition is disabled."""
     return _wrapper

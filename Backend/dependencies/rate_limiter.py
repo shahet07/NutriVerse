@@ -8,7 +8,8 @@ Two sliding windows per user:
   - 20 requests / minute
   - 200 requests / day
 
-Anonymous (unauthenticated) requests share a single ``__anonymous__`` bucket.
+Anonymous requests are limited per client address. Only a request with no known
+address at all falls into the shared ``__anonymous__`` bucket.
 """
 
 from __future__ import annotations
@@ -70,6 +71,11 @@ class _UserBucket:
 
 
 _buckets: dict[str, _UserBucket] = defaultdict(_UserBucket)
+
+
+def client_key(host: str | None) -> str | None:
+    """Rate-limit key for an unauthenticated client, or None if address unknown."""
+    return f"ip:{host}" if host else None
 
 
 def enforce_rate_limit() -> None:

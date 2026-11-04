@@ -59,7 +59,9 @@ function formatTime(seconds: number): string {
 }
 
 function generateSessionId(): string {
-  return `k-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+  // Knowing this ID is what grants access to the session, so it must be unguessable.
+  const bytes = crypto.getRandomValues(new Uint8Array(12))
+  return `k-${Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')}`
 }
 
 // ── Phase type ──────────────────────────────────────────────────────

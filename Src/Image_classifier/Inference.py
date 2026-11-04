@@ -39,7 +39,7 @@ def _build_convnext(num_classes: int) -> nn.Module:
 def load_model(model_path: str = DEFAULT_MODEL_PATH, device: str | None = None):
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
-    ckpt = torch.load(model_path, map_location="cpu", weights_only=False)
+    ckpt = torch.load(model_path, map_location="cpu", weights_only=True)
     class_names = list(ckpt["class_names"])
     model = _build_convnext(len(class_names))
     model.load_state_dict(ckpt["model_state_dict"])

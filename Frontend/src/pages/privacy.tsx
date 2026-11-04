@@ -175,7 +175,7 @@ export default function PrivacyPage() {
         {/* Footer note */}
         <div className="mt-16 pt-8 border-t border-white/[0.07]">
           <p className="text-[11px] text-white/15 font-sans">
-            &copy; 2026 Kashyap K &mdash; NutriVerse &mdash; For informational purposes only. Not intended as medical or dietary advice.
+            &copy; 2026 Kashyap K and Het Shah &mdash; NutriVerse &mdash; For informational purposes only. Not intended as medical or dietary advice.
           </p>
         </div>
       </div>

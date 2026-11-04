@@ -40,8 +40,10 @@ import time
 from typing import Any, Optional
 
 import numpy as np
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 
+from Backend.dependencies.rate_limiter import client_key, current_user_uid
+from Backend.dependencies.session_id import is_valid_session_id
 from Backend.schemas.chef import (
     ChefIntentRequest,
     ChefIntentResponse,
@@ -645,6 +647,9 @@ async def push_session_state(session_id: str, payload: dict[str, Any]) -> dict:
     connected phone WebSocket in real-time.  Called by ``chef.tsx``
     whenever the session state changes (step navigation, timer tick, etc.).
     """
+    if not is_valid_session_id(session_id):
+        raise HTTPException(status_code=400, detail="Invalid session id.")
+
     _registry.set_state(session_id, payload)
 
     phone_ws = _registry.get_phone(session_id)
@@ -771,7 +776,12 @@ async def chef_voice_websocket(websocket: WebSocket, session_id: str) -> None:
     ``error``           Error message.
     ==================  ==========================================
     """
+    if not is_valid_session_id(session_id):
+        await websocket.close(code=4400, reason="invalid_session_id")
+        return
     await websocket.accept()
+    # Voice LLM calls are charged to this client, not the shared anonymous bucket.
+    current_user_uid.set(client_key(websocket.client.host if websocket.client else None))
 
     role = "phone"
     vad = VoiceActivityDetector()
@@ -870,7 +880,8 @@ async def chef_voice_websocket(websocket: WebSocket, session_id: str) -> None:
                     asyncio.create_task(_handle_utterance(websocket, session_id, chunk))
                     continue
 
-                # Continuous streaming (WebM) with backend VAD.                audio_buffer.extend(chunk)
+                # Continuous streaming (WebM) with backend VAD.
+                audio_buffer.extend(chunk)
 
                 # VAD decides when an utterance is complete
                 if vad.feed_chunk(chunk):

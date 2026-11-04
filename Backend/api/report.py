@@ -1,5 +1,6 @@
 import base64
 import csv
+import hmac
 import logging
 import os
 import pathlib
@@ -110,7 +111,7 @@ async def submit_feedback_report(
 
 @router.get("/report/download")
 async def download_reports(token: str = ""):
-    if not ADMIN_TOKEN or token != ADMIN_TOKEN:
+    if not ADMIN_TOKEN or not hmac.compare_digest(token, ADMIN_TOKEN):
         raise HTTPException(status_code=403, detail="Forbidden.")
     _ensure_csv()
     return FileResponse(

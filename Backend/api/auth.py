@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 from datetime import datetime, timedelta, timezone
@@ -8,7 +9,7 @@ from typing import Any, Dict, Tuple
 from uuid import uuid4
 
 import firebase_admin
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from firebase_admin import auth as firebase_auth
 from firebase_admin import credentials
 from jose import JWTError, jwt
@@ -17,7 +18,13 @@ from jose.exceptions import ExpiredSignatureError
 from Backend.core.config import settings
 from Backend.dependencies.neo4j import get_neo4j_client
 from Backend.dependencies.jti_blacklist import is_revoked, revoke
-from Backend.schemas.auth import LoginRequest, LogoutRequest, RefreshRequest, TokenPairResponse
+from Backend.schemas.auth import (
+    DevLoginRequest,
+    LoginRequest,
+    LogoutRequest,
+    RefreshRequest,
+    TokenPairResponse,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -149,6 +156,36 @@ async def login(
             detail="Failed to issue authentication tokens.",
         )
 
+    return TokenPairResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        access_token_expires_in=settings.auth_access_token_minutes * 60,
+        refresh_token_expires_in=settings.auth_refresh_token_days * 24 * 60 * 60,
+    )
+
+
+_LOOPBACK_HOSTS = {"127.0.0.1", "::1"}
+
+
+@router.post("/dev-login", response_model=TokenPairResponse)
+async def dev_login(
+    payload: DevLoginRequest,
+    request: Request,
+    neo4j_client=Depends(get_neo4j_client),
+) -> TokenPairResponse:
+    """Local-development sign-in with no password check.
+
+    Hidden unless AUTH_DEV_LOGIN=true and the caller is on this machine.
+    """
+    host = request.client.host if request.client else ""
+    if not settings.auth_dev_login or host not in _LOOPBACK_HOSTS:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
+
+    email = payload.email.strip().lower()
+    name = payload.name or email.split("@")[0]
+    uid = "dev-" + hashlib.sha256(email.encode()).hexdigest()[:24]
+    await asyncio.to_thread(neo4j_client.ensure_auth_user, uid, email, name)
+    access_token, refresh_token = _mint_token_pair(uid, email, name)
     return TokenPairResponse(
         access_token=access_token,
         refresh_token=refresh_token,

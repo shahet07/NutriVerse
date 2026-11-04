@@ -166,10 +166,14 @@ export interface ChatRequest {
   message: string
   context?: Record<string, unknown> | null
   history?: ChatMessagePayload[]
+  /** Ask the server to detect a follow-up about a different dish. */
+  allow_new_dish?: boolean
 }
 
 export interface ChatResponseData {
   reply: string
+  /** Set instead of a reply when the message is about a different dish. */
+  new_query?: string | null
 }
 
 /* ──────────────────────────────────────────────

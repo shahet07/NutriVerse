@@ -151,7 +151,7 @@ NutriSense-AI/
 │   ├── Router/             Intent router
 │   ├── services/           GraphRAG, recommender
 │   └── neo4j_client.py     All Cypher lives here
-├── frontend/             React 19 + Vite + Electron desktop wrapper
+├── Frontend/             React 19 + Vite + Electron desktop wrapper
 ├── Extension/            Chrome MV3 extension
 ├── data/                 Persistent reports / feedback CSVs
 ├── Notebooks/            Training & exploration notebooks
@@ -174,8 +174,8 @@ NutriSense-AI/
 ### Setup
 
 ```bash
-git clone https://github.com/KAshyapk07/NutriSense-AI.git
-cd NutriSense-AI
+git clone https://github.com/shahet07/NutriVerse.git
+cd NutriVerse
 
 # Backend
 python -m venv .venv
@@ -183,7 +183,7 @@ python -m venv .venv
 pip install -r requirements.txt
 
 # Frontend
-cd frontend
+cd Frontend
 npm install
 cd ..
 ```
@@ -213,7 +213,10 @@ Create a `.env` file at the project root. Only the variables relevant to your de
 | `ALLOWED_ORIGINS` | Comma-separated CORS allow-list |
 | `PUBLIC_URL` | Externally reachable base URL (used for Chef-Remote QR codes) |
 | `SERVE_STATIC` | `true` to serve the SPA from FastAPI (default), `false` if behind a CDN |
-| `FRONTEND_DIR` | Path to the built SPA (default `frontend/dist`) |
+| `FRONTEND_DIR` | Path to the built SPA (default `frontend/dist`, else `Frontend/dist`) |
+| `MODEL_PATH` | Path to the ConvNeXt checkpoint. Needed locally unless Git LFS has pulled the real file |
+| `OLLAMA_MODEL` | Local model used when `GROQ_API_KEY` is empty (default `llama3.2`) |
+| `AUTH_DEV_LOGIN` | `true` enables passwordless sign-in for loopback clients. Local development only, never on a server |
 | `MAX_CONTENT_MB` | Upload limit (default `16`) |
 | `REPORT_ADMIN_TOKEN` | Token guarding `/report/download` and `/ai-feedback/download` |
 | `REPORT_DIR` | Directory for issue-report CSVs (e.g. `/home/data/reports` on Azure) |
@@ -229,6 +232,14 @@ Frontend (build-time, Vite):
 
 ## Running Locally
 
+### One command
+
+```bash
+./scripts/run-local.sh
+```
+
+Needs Docker, Ollama, Node and Python 3.11. It creates `.env` and `.venv`, starts a local Neo4j, loads the recipe data, downloads the model, then serves the app at `http://localhost:5173`. Without Firebase settings it uses local sign-in, where any email works.
+
 ### Backend (FastAPI)
 
 ```bash
@@ -242,16 +253,16 @@ OpenAPI docs are available at `http://localhost:8000/docs`.
 ### Frontend (Vite dev server)
 
 ```bash
-cd frontend
+cd Frontend
 npm run dev
 ```
 
-Open `http://localhost:5173`. The dev server proxies API calls to the backend; in production the same FastAPI process serves the built SPA.
+Open `http://localhost:5173`. The dev server proxies API calls to `http://localhost:8000` (override with `VITE_PROXY_TARGET`); in production the same FastAPI process serves the built SPA.
 
 ### Desktop (Electron)
 
 ```bash
-cd frontend
+cd Frontend
 npm run desktop          # run Electron against the dev build
 npm run dist:win         # produce an NSIS installer
 npm run dist:appx        # produce a Microsoft Store APPX
@@ -346,7 +357,7 @@ Indexes are created idempotently on startup (recipe and product id, user-id uniq
 
 ## Distribution
 
-- **Microsoft Store** — Published as **NutriVerse** under Health & fitness; APPX built via `electron-builder` with Partner Center identity wired into `frontend/package.json`.
+- **Microsoft Store** — Published as **NutriVerse** under Health & fitness; APPX built via `electron-builder` with Partner Center identity wired into `Frontend/package.json`.
 - **NSIS installer** — Single-file `.exe` for users outside the Store.
 - **Chrome Web Store** — MV3 extension in `Extension/`; right-click any image on any page to classify it via the production backend.
 - **Backend** — Docker image deployed to **Azure App Service** (Southeast Asia). Persistent storage uses Azure Files mounts for issue-report and feedback CSVs.
@@ -362,6 +373,10 @@ The repository ships:
 
 Released under the **MIT License** — see [`LICENSE`](LICENSE).
 
-The trained model weights, recipe dataset, and brand assets (icons, store listings) are **not** covered by the MIT License and remain © 2026 Kashyap K. Contact for any commercial reuse.
+The trained model weights, recipe dataset, and brand assets (icons, store listings) are **not** covered by the MIT License and remain © 2026 Kashyap K and Het Shah. Contact for any commercial reuse.
 
 ---
+
+## Author
+
+Built by **Kashyap K** and **Het Shah**.

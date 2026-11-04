@@ -1,3 +1,4 @@
+import asyncio
 import os
 import logging
 import pathlib
@@ -48,15 +49,18 @@ async def lifespan(app: FastAPI):
 
     router_dep.init()
 
-    # Pre-warm Whisper STT model so the first voice command isn't delayed
-    # by a cold model load (downloading + loading ~76 MB takes 1-3 min on CPU).
+    # Pre-warm Whisper in the background: the first run downloads the model,
+    # which must not stop the API from serving non-voice requests.
     if os.getenv("STT_BACKEND", "faster-whisper") == "faster-whisper":
-        try:
-            from Backend.api.voice_stream import _get_whisper_model
-            await _get_whisper_model()
-            logger.info("Whisper STT model pre-warmed.")
-        except Exception as exc:
-            logger.warning("Whisper pre-warm failed (non-fatal): %s", exc)
+        async def _prewarm_whisper() -> None:
+            try:
+                from Backend.api.voice_stream import _get_whisper_model
+                await _get_whisper_model()
+                logger.info("Whisper STT model pre-warmed.")
+            except Exception as exc:
+                logger.warning("Whisper pre-warm failed (non-fatal): %s", exc)
+
+        app.state.whisper_prewarm = asyncio.create_task(_prewarm_whisper())
 
     logger.info("Startup complete. Ready to serve requests.")
 

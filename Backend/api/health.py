@@ -32,7 +32,7 @@ async def health_check(
         categories=stats.get("categories", 0),
         allergen_tags=stats.get("allergen_tags", 0),
         image_model_loaded=image_model is not None,
-        num_classes=image_model.num_classes,
+        num_classes=image_model.num_classes if image_model else 0,
     )
 
 

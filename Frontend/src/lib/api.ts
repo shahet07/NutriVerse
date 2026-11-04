@@ -77,7 +77,14 @@ async function apiFetch(path: string, init: ApiRequestOptions = {}): Promise<Res
 
 async function readErrorAndThrow(res: Response): Promise<never> {
   const text = await res.text()
-  throw new Error(`Server error ${res.status}: ${text}`)
+  let message = text
+  try {
+    const body = JSON.parse(text)
+    message = body.error ?? body.detail ?? text
+  } catch {
+    // Not JSON: show the text as it is.
+  }
+  throw new Error(`Server error ${res.status}: ${message}`)
 }
 
 // ── App config (exposes PUBLIC_URL set in backend .env) ──────────────────────
@@ -323,6 +330,28 @@ export async function loginWithFirebaseToken(firebaseIdToken: string): Promise<T
 
   if (!res.ok) await readErrorAndThrow(res)
   return res.json()
+}
+
+/** Local-development sign-in. The backend hides it unless AUTH_DEV_LOGIN=true. */
+export async function devLogin(email: string, name?: string): Promise<TokenPairResponse> {
+  const res = await fetch(`${API_BASE}/auth/dev-login`, {
+    method: 'POST',
+    headers: { ...COMMON_HEADERS, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, name }),
+    signal: AbortSignal.timeout(60_000),
+  })
+
+  if (!res.ok) await readErrorAndThrow(res)
+  return res.json()
+}
+
+/** Revoke the tokens on the server. Best effort: sign-out continues regardless. */
+export async function logoutSession(accessToken: string, refreshToken: string): Promise<void> {
+  await fetch(`${API_BASE}/auth/logout`, {
+    method: 'POST',
+    headers: { ...COMMON_HEADERS, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ access_token: accessToken, refresh_token: refreshToken }),
+  })
 }
 
 export async function refreshTokenPair(refreshToken: string): Promise<TokenPairResponse> {

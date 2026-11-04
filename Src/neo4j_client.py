@@ -49,11 +49,20 @@ class Neo4jClient:
             "CREATE INDEX product_id_idx IF NOT EXISTS FOR (fp:FoodProduct) ON (fp.id)",
             # Uniqueness constraint on User.id (also creates an index)
             "CREATE CONSTRAINT user_id_unique IF NOT EXISTS FOR (u:User) REQUIRE u.id IS UNIQUE",
+            # Search queries these directly and fail if they are missing, even
+            # when a graph has no FoodProduct nodes.
+            "CREATE FULLTEXT INDEX recipe_name_fulltext IF NOT EXISTS FOR (r:Recipe) ON EACH [r.name, r.food_name]",
+            "CREATE FULLTEXT INDEX product_name_fulltext IF NOT EXISTS FOR (fp:FoodProduct) ON EACH [fp.name, fp.generic_name, fp.brand]",
+            *(
+                f"CREATE VECTOR INDEX {name} IF NOT EXISTS FOR (n:{label}) ON (n.embedding) "
+                "OPTIONS {indexConfig: {`vector.dimensions`: 384, `vector.similarity_function`: 'cosine'}}"
+                for name, label in (("recipe_embedding", "Recipe"), ("product_embedding", "FoodProduct"))
+            ),
         ]
         with self.driver.session() as session:
             for stmt in statements:
                 try:
-                    session.run(stmt)
+                    session.run(stmt).consume()
                 except Exception:
                     # Silently skip — Community Edition may not support
                     # some constraint types, but the index is the important part.
@@ -183,15 +192,14 @@ class Neo4jClient:
         with self.driver.session() as session:
             result = session.run(
                 """
-                MATCH (r:Recipe)       WITH count(r)  AS recipes
-                MATCH (i:Ingredient)   WITH recipes,  count(i)  AS ingredients
-                MATCH (ic:ImageClass)  WITH recipes,  ingredients, count(ic) AS image_classes
-                MATCH (fp:FoodProduct) WITH recipes,  ingredients, image_classes, count(fp) AS food_products
-                MATCH (b:Brand)        WITH recipes,  ingredients, image_classes, food_products, count(b) AS brands
-                MATCH (cat:Category)   WITH recipes,  ingredients, image_classes, food_products, brands, count(cat) AS categories
-                MATCH (at:AllergenTag) WITH recipes,  ingredients, image_classes, food_products, brands, categories, count(at) AS allergen_tags
-                RETURN recipes, ingredients, image_classes,
-                       food_products, brands, categories, allergen_tags
+                RETURN
+                    count { (:Recipe) }      AS recipes,
+                    count { (:Ingredient) }  AS ingredients,
+                    count { (:ImageClass) }  AS image_classes,
+                    count { (:FoodProduct) } AS food_products,
+                    count { (:Brand) }       AS brands,
+                    count { (:Category) }    AS categories,
+                    count { (:AllergenTag) } AS allergen_tags
                 """
             )
             record = result.single()
@@ -282,6 +290,7 @@ class Neo4jClient:
                     fp.image_url        AS image_url,
                     b.name              AS brand_node,
                     cat.name            AS category_node
+                ORDER BY size(name)
                 LIMIT 1
                 """,
                 name=name,

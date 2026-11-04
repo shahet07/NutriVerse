@@ -5,7 +5,9 @@ import json
 import re
 import traceback
 
-from Src.Pathway_1.pathway1 import pathway_1_lookup as search_recipe
+from fastapi import HTTPException
+
+from Src.Pathway_1.pathway1 import clean_minimal, pathway_1_lookup as search_recipe
 from Src.Pathway_1.pathway1_products import pathway_1_product_lookup as search_product
 
 # ── Product / packaged-food detection keywords ─────────────────────────────
@@ -14,7 +16,7 @@ from Src.Pathway_1.pathway1_products import pathway_1_product_lookup as search_p
 # home-cooked Indian recipes (e.g. paneer, butter, ghee, oil).
 PRODUCT_KEYWORDS: set[str] = {
     # Packaging / format signals
-    "packet", "packaged", "brand", "bottle", "can", "tin", "box",
+    "packet", "packaged", "brand", "bottle", "box",
     "sachet", "pouch",
     # Commercial-only product categories
     "chips", "biscuit", "biscuits", "cookie", "cookies", "cereal",
@@ -45,11 +47,10 @@ COMPARE_PATTERNS = [
 ]
 
 MODIFY_KEYWORDS = [
-    'less', 'low', 'reduce', 'without', 'no ', 'vegan', 'vegetarian',
+    'less', 'low', 'reduce', 'without', 'no', 'vegan', 'vegetarian',
     'healthy version', 'healthier', 'substitute', 'replace', 'gluten free',
     'sugar free', 'keto', 'diet', 'light version', 'make it',
-    'calorie', 'protein rich', 'high protein', 'low fat', 'low carb',
-    'oil free', 'dairy free',
+    'protein rich', 'high protein', 'oil free', 'dairy free',
 ]
 
 SEARCH_KEYWORDS = [
@@ -72,6 +73,62 @@ SEARCH_QUALIFIER_REGEX = re.compile('|'.join(SEARCH_QUALIFIER_PATTERNS), re.IGNO
 
 COMPARE_REGEX = re.compile('|'.join(COMPARE_PATTERNS), re.IGNORECASE)
 
+# A dietary qualifier plus a meal type describes a category ("high protein
+# breakfast"). A qualifier plus a dish is a modification ("low fat biryani").
+MEAL_TYPE_REGEX = re.compile(
+    r'\b(breakfast|lunch|dinner|snack|meal|dessert|sweet|drink|appetizer|starter|side\s*dish|option|idea)s?\b',
+    re.IGNORECASE,
+)
+
+
+# "how many calories should be in", tolerating the common typo "who much".
+QUESTION_PREFIX_REGEX = re.compile(
+    r'^\s*(?:how|who|what)\s+(?:much|many)\s+'
+    r'(?:(?:calories?|protein|carbs?|carbohydrates?|fats?|fib(?:re|er)|sugar|sodium|iron|calcium)\s+)?'
+    r'(?:(?:should|would|does|do|is|are|be|there|has|have)\s+)*'
+    r'(?:(?:in|of|for)\s+)?',
+    re.IGNORECASE,
+)
+# "1 bowl of", "a plate of": the dish is what follows.
+SERVING_PREFIX_REGEX = re.compile(
+    r'^\s*(?:\d+|an?|one|two)\s+(?:bowl|plate|cup|serving|piece|portion|glass)(?:e?s)?\s+of\s+',
+    re.IGNORECASE,
+)
+
+
+# A follow-up with these words is about the current dish, even if it names another.
+FOLLOW_UP_WORDS = frozenset(
+    "instead replace substitute swap compare vs versus than with add without".split()
+)
+# Dish words that signal a new food in a follow-up. Hand-written because the data
+# can't supply this: "dosa" is also an ingredient ("dosa rice"), and words in dish
+# names include "rich" and "home".
+DISH_WORDS = frozenset(
+    "dosa dosai idli biryani biriyani pulao pilaf khichdi sambar rasam samosa pakora "
+    "pakoda naan roti chapati paratha parantha poori puri kulcha upma poha uttapam appam "
+    "vada dhokla thepla chole rajma dal daal kheer halwa laddu ladoo jalebi rasgulla "
+    "burfi korma kofta kebab tikka vindaloo bhaji bharta momos chowmein pizza burger "
+    "pasta noodles sandwich omelette".split()
+)
+# Words kept in front of a dish word: "chicken biryani", not just "biryani".
+DISH_QUALIFIERS = frozenset(
+    "chicken mutton egg fish prawn paneer veg vegetable aloo masala mysore rava neer "
+    "set onion butter".split()
+)
+
+# Words that can make up a question about a photo without naming any dish.
+PHOTO_REFERENCE_WORDS = frozenset(
+    "this that it these those here dish food meal item image photo picture pic "
+    "the a an is are in of for my what whats which name how much many calories calorie "
+    "nutrition protein carbs fat tell me about does do have has contain contains there "
+    "identify recognise recognize please s".split()
+)
+
+
+def _find_keyword(text: str, keyword: str) -> re.Match | None:
+    """Match *keyword* as whole words: "low" must not match "yellow"."""
+    return re.search(rf'\b{re.escape(keyword)}\b', text)
+
 
 class NutriSenseRouter:
     def __init__(self, neo4j_client, llm_engine, image_model=None, graph_rag_service=None, voice_llm=None):
@@ -82,6 +139,7 @@ class NutriSenseRouter:
         # Separate fast client for voice/chat endpoints (Groq).
         # Falls back to the engine's LLM if not provided.
         self.voice_llm = voice_llm or llm_engine.llm
+        self._dish_names: set[str] | None = None
 
     # ─────────────────────────────────────────────────────────────────────
     # Cluster detection helpers
@@ -93,8 +151,12 @@ class NutriSenseRouter:
         Heuristic: return "product" if the dish name looks like a packaged
         food brand / commercial item, otherwise return "recipe".
         """
-        tokens = set(dish_name.lower().split())
+        lowered = dish_name.lower()
+        tokens = set(lowered.split())
         if tokens & BRAND_INDICATORS:
+            return "product"
+        # Multi-word brands ("mother dairy") can't match a single token.
+        if any(' ' in brand and brand in lowered for brand in BRAND_INDICATORS):
             return "product"
         if tokens & PRODUCT_KEYWORDS:
             return "product"
@@ -114,19 +176,23 @@ class NutriSenseRouter:
     def _rule_based_classify(self, query: str):
         q = query.lower().strip()
 
-        if ' and ' in q:
-            dishes = self._extract_compare_dishes(q)
-            if dishes and len(dishes) == 2:
-                if len(dishes[0]) > 2 and len(dishes[1]) > 2:
-                    return {"pathway": "COMPARE", "dishes": dishes, "constraint": None}
-
+        # A bare "and" is not a comparison: "dal and rice" is one meal, and
+        # "dal without onion and garlic" is a modification.
         if COMPARE_REGEX.search(q):
             dishes = self._extract_compare_dishes(q)
             if dishes and len(dishes) >= 2:
                 return {"pathway": "COMPARE", "dishes": dishes, "constraint": None}
 
+        # Search before modify, or "suggest low fat snacks" reads as a modification.
+        for kw in SEARCH_KEYWORDS:
+            if re.search(rf'\b{re.escape(kw)}', q):
+                return {"pathway": "SEARCH", "dishes": [q], "constraint": None}
+
+        if SEARCH_QUALIFIER_REGEX.search(q) and MEAL_TYPE_REGEX.search(q):
+            return {"pathway": "SEARCH", "dishes": [q], "constraint": None}
+
         for kw in MODIFY_KEYWORDS:
-            if kw in q:
+            if _find_keyword(q, kw):
                 dish = self._extract_dish_for_modify(q, kw)
                 constraint = self._extract_constraint(q)
                 return {
@@ -135,11 +201,7 @@ class NutriSenseRouter:
                     "constraint": constraint,
                 }
 
-        for kw in SEARCH_KEYWORDS:
-            if kw in q:
-                return {"pathway": "SEARCH", "dishes": [q], "constraint": None}
-
-        # Semantic search patterns — e.g. "high protein breakfast", "keto snacks"
+        # Qualifiers that make sense alone, e.g. "diabetic friendly"
         if SEARCH_QUALIFIER_REGEX.search(q):
             return {"pathway": "SEARCH", "dishes": [q], "constraint": None}
 
@@ -160,7 +222,8 @@ class NutriSenseRouter:
 
     @staticmethod
     def _extract_dish_for_modify(q: str, keyword: str):
-        idx = q.find(keyword)
+        match = _find_keyword(q, keyword)
+        idx = match.start() if match else -1
         before = q[:idx].strip() if idx > 0 else ""
         for filler in ['make', 'prepare', 'cook', 'give me', 'i want', 'can you', 'how to', 'create',
                         'with', 'that is', 'to be', 'to', 'which is', 'which should be']:
@@ -170,15 +233,18 @@ class NutriSenseRouter:
     @staticmethod
     def _extract_constraint(q: str):
         for kw in MODIFY_KEYWORDS:
-            if kw in q:
-                idx = q.find(kw)
-                return q[idx:].strip()
+            match = _find_keyword(q, kw)
+            if match:
+                return q[match.start():].strip()
         return q
 
     @staticmethod
     def _clean_dish_name(text: str):
-        text = text.strip()
-        for filler in ['what is in', 'what is', 'nutrition of', 'nutrients in',
+        text = text.strip().rstrip('?.! ')
+        text = QUESTION_PREFIX_REGEX.sub('', text)
+        text = SERVING_PREFIX_REGEX.sub('', text)
+        for filler in ['how many calories in', 'calories in', 'calories of',
+                       'what is in', 'what is', 'nutrition of', 'nutrients in',
                        'tell me about', 'details of', 'info about', 'about',
                        'how much', 'nutritional value of', 'give me',
                        'i want', 'show me', 'compare', 'which is']:
@@ -254,9 +320,59 @@ Return ONLY valid JSON (no markdown, no explanation):
             print(f"[Router] Classification error: {e}, defaulting to EXTRACT")
             return {"pathway": "EXTRACT", "dishes": [query], "constraint": None}
         
+    @classmethod
+    def _text_names_dish(cls, text) -> bool:
+        """True if the text says what the food is, rather than pointing at a photo."""
+        words = re.findall(r"[a-z]+", cls._clean_dish_name(text or "").lower())
+        return any(word not in PHOTO_REFERENCE_WORDS for word in words)
+
+    def _load_dish_names(self) -> set[str]:
+        if self._dish_names is None:
+            self._dish_names = {
+                clean_minimal(r.get("food_name") or "")
+                for r in self.neo4j_client.get_all_recipe_names()
+            } - {""}
+        return self._dish_names
+
+    def find_new_dish(self, message: str, context: dict | None) -> str | None:
+        """Return the dish a follow-up switches to, or None if it stays on the current one."""
+        text = clean_minimal(message)
+        words = text.split()
+        if FOLLOW_UP_WORDS & set(words):
+            return None
+
+        padded = f" {text} "
+        full_names = [
+            name for name in self._load_dish_names()
+            if f" {name} " in padded or f" {name}s " in padded
+        ]
+        dish = max(full_names, key=len) if full_names else None
+        if dish is None:
+            for i, word in enumerate(words):
+                singular = word[:-1] if word.endswith("s") else word
+                if word in DISH_WORDS or singular in DISH_WORDS:
+                    found = word if word in DISH_WORDS else singular
+                    before = words[i - 1] if i else ""
+                    dish = f"{before} {found}" if before in DISH_QUALIFIERS else found
+                    break
+        if dish is None:
+            return None
+
+        current = clean_minimal(" ".join(str(v) for v in (context or {}).values()))
+        return None if f" {dish} " in f" {current} " else dish
+
+    def _require_image_model(self) -> None:
+        if self.image_model is None:
+            raise HTTPException(
+                status_code=503,
+                detail="Photo recognition isn't set up on this server yet. Type the dish name instead.",
+            )
+
     def execute(self, text_query=None, image_input=None):
         try:
-            if image_input is not None:
+            # A dish named in the text wins; "calories in this?" means the photo.
+            if image_input is not None and not self._text_names_dish(text_query):
+                self._require_image_model()
                 top_predictions = self.image_model.predict(image_input)
                 return self.handle_image_extraction(top_predictions)
 
@@ -282,6 +398,8 @@ Return ONLY valid JSON (no markdown, no explanation):
                 target = dishes[0] if dishes else text_query
                 return self.handle_extraction(target)
 
+        except HTTPException:
+            raise  # rate limits must reach the client as 429
         except Exception as e:
             traceback.print_exc()
             return {
@@ -496,7 +614,9 @@ Return ONLY valid JSON (no markdown, no explanation):
         self, text_query: str = "", image_input: str | None = None
     ) -> dict:
         try:
-            if image_input is not None:
+            # A dish named in the text wins; "calories in this?" means the photo.
+            if image_input is not None and not self._text_names_dish(text_query):
+                self._require_image_model()
                 top_predictions = await asyncio.to_thread(
                     self.image_model.predict, image_input
                 )
@@ -525,6 +645,8 @@ Return ONLY valid JSON (no markdown, no explanation):
                 target = dishes[0] if dishes else text_query
                 return await self._async_handle_extraction(target)
 
+        except HTTPException:
+            raise  # rate limits must reach the client as 429
         except Exception as exc:
             traceback.print_exc()
             return {"error": str(exc), "llm_response": f"An error occurred: {exc}"}

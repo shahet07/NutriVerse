@@ -45,7 +45,7 @@ RECIPE_KEEP = [
     "Calcium (mg)",
     "Iron (mg)",
     "Vitamin C (mg)",
-    "Folate (Âµg)",
+    "Folate (µg)",
 ]
 
 # Keep only columns that actually exist

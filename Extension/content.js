@@ -611,17 +611,19 @@
 
   window.addEventListener('message', (e) => {
     if (e.data?.type !== 'NUTRISENSE_EXT_AUTH') return
-    // Only accept from the same origin (app page) or known NutriSense hosts
+    // This script can run on any site after a right-click, so accept auth
+    // messages only from this window on a known NutriVerse host. Otherwise any
+    // page could replace the user's session or sign them out.
+    if (e.source !== window) return
     const origin = e.origin || ''
     const ALLOWED_ORIGINS = new Set([
       'https://nutrisense-ai-c8f2anche0b6a8be.southeastasia-01.azurewebsites.net',
       'https://nutrisense.app',
       'https://app.nutrisense.app',
       'http://localhost:5173',
-      'http://localhost:3000',
+      'http://localhost:8000',
     ])
-    const allowed = origin === window.location.origin || ALLOWED_ORIGINS.has(origin)
-    if (!allowed) return
+    if (!ALLOWED_ORIGINS.has(origin)) return
     chrome.runtime.sendMessage({
       type: 'SYNC_AUTH',
       refreshToken: e.data.refreshToken || null,

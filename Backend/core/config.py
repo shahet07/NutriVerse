@@ -1,6 +1,13 @@
 import os
+import pathlib
 from dataclasses import dataclass, field
 from typing import Optional
+
+from dotenv import load_dotenv
+
+# Settings are read when this module is imported, which happens before
+# lifespan.py runs, so .env has to be loaded here.
+load_dotenv(pathlib.Path(__file__).resolve().parents[2] / ".env")
 
 
 @dataclass
@@ -15,7 +22,10 @@ class Settings:
         default_factory=lambda: int(os.getenv("MAX_CONTENT_MB", "16"))
     )
     frontend_dir: str = field(
-        default_factory=lambda: os.getenv("FRONTEND_DIR", "frontend/dist")
+        # Docker copies the build to frontend/dist; the repo folder is Frontend/.
+        default_factory=lambda: os.getenv("FRONTEND_DIR") or (
+            "frontend/dist" if os.path.isdir("frontend/dist") else "Frontend/dist"
+        )
     )
     host: str = field(
         default_factory=lambda: os.getenv("HOST", "0.0.0.0")
@@ -57,6 +67,15 @@ class Settings:
     )
     firebase_project_id: Optional[str] = field(
         default_factory=lambda: os.getenv("FIREBASE_PROJECT_ID") or None
+    )
+    # Local development only: lets loopback clients sign in without Firebase.
+    # Never set this on a deployed server.
+    auth_dev_login: bool = field(
+        default_factory=lambda: os.getenv("AUTH_DEV_LOGIN", "false").lower() == "true"
+    )
+    # Used when GROQ_API_KEY is not set.
+    ollama_model: str = field(
+        default_factory=lambda: os.getenv("OLLAMA_MODEL", "llama3.2")
     )
     # ── LLM providers ─────────────────────────────────────────────────────
     # Groq  — fast inference for voice/chat (free tier)

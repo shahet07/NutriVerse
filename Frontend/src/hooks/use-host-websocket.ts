@@ -51,12 +51,9 @@ const MAX_RECONNECT_DELAY_MS = 15_000
 
 /** Generate a short, URL-safe random session ID. */
 function generateSessionId(): string {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
-  let id = 'chef-'
-  for (let i = 0; i < 10; i++) {
-    id += chars[Math.floor(Math.random() * chars.length)]
-  }
-  return id
+  // Knowing this ID is what grants access to the session, so it must be unguessable.
+  const bytes = crypto.getRandomValues(new Uint8Array(12))
+  return `chef-${Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')}`
 }
 
 // ── Hook ───────────────────────────────────────────────────────────

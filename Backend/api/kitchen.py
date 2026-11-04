@@ -10,6 +10,8 @@ from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
+from Backend.dependencies.rate_limiter import client_key, current_user_uid
+from Backend.dependencies.session_id import is_valid_session_id
 from Backend.schemas.chef import (
     ChefIntentRequest,
     ChefIntentResponse,
@@ -252,9 +254,10 @@ _CULINARY_PROMPT = (
 )
 
 # Phrases that Whisper commonly hallucinates on silence/kitchen noise.
+# Compared with trailing periods stripped, so entries must not end in one.
 _WHISPER_HALLUCINATIONS = {
-    "", ".", "thank you.", "thanks.", "you", "bye.", "thanks for watching.",
-    "thank you for watching.", "i'm going to go.", "goodbye.",
+    "", "thank you", "thanks", "you", "bye", "thanks for watching",
+    "thank you for watching", "i'm going to go", "goodbye",
 }
 
 
@@ -262,9 +265,10 @@ def _get_whisper():
     global _whisper_model
     if _whisper_model is None:
         from faster_whisper import WhisperModel
-        model_size = os.getenv("WHISPER_MODEL", "base")
-        device = os.getenv("WHISPER_DEVICE", "cpu")
-        compute = os.getenv("WHISPER_COMPUTE", "int8")
+        # Same settings as voice_stream.py, so both paths use one model size.
+        model_size = os.getenv("STT_MODEL_SIZE", "small.en")
+        device = os.getenv("STT_DEVICE", "cpu")
+        compute = os.getenv("STT_COMPUTE_TYPE", "int8")
         logger.info("Loading faster-whisper model=%s device=%s compute=%s", model_size, device, compute)
         _whisper_model = WhisperModel(model_size, device=device, compute_type=compute)
         logger.info("Whisper model ready.")
@@ -423,6 +427,10 @@ async def _execute_intent(
     elif action == "REPEAT":
         step = session.get_current_step_info()
         return f"Step {session.current_step}: {step.get('action', '')}"
+    elif action == "FINISH_SESSION":
+        session.phase = "done"
+        session.timer_pause()
+        return "Enjoy your meal! Session finished."
     elif action == "ASK":
         return None
     return None
@@ -539,7 +547,12 @@ async def _dispatch_transcript(
 
 @router.websocket("/ws/kitchen/{session_id}")
 async def kitchen_websocket(websocket: WebSocket, session_id: str) -> None:
+    if not is_valid_session_id(session_id):
+        await websocket.close(code=4400, reason="invalid_session_id")
+        return
     await websocket.accept()
+    # Voice LLM calls are charged to this client, not the shared anonymous bucket.
+    current_user_uid.set(client_key(websocket.client.host if websocket.client else None))
 
     session: CookingSession | None = None
     # Holds the latest raw WAV bytes from onSpeechEnd — cleared after transcription.

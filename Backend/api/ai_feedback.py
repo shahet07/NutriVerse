@@ -1,4 +1,5 @@
 import csv
+import hmac
 import logging
 import os
 import pathlib
@@ -63,7 +64,7 @@ async def submit_ai_feedback(
 
 @router.get("/ai-feedback/download")
 async def download_feedback(token: str = ""):
-    if not ADMIN_TOKEN or token != ADMIN_TOKEN:
+    if not ADMIN_TOKEN or not hmac.compare_digest(token, ADMIN_TOKEN):
         raise HTTPException(status_code=403, detail="Forbidden.")
     _ensure_csv()
     return FileResponse(

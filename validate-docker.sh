@@ -9,13 +9,17 @@ echo "=================================================="
 echo ""
 
 # 1. Check if ConvNeXt model exists
+# The Docker build downloads the real weights from Hugging Face, so a Git LFS
+# pointer is fine here. It only warns that local runs need MODEL_PATH instead.
 echo "✓ Checking ConvNeXt model file..."
-if [ ! -f "Src/Image_classifier/models/nutrisense_convnext_small_best.pth" ]; then
-    echo "❌ ERROR: ConvNeXt model file not found!"
-    echo "   Expected: Src/Image_classifier/models/nutrisense_convnext_small_best.pth"
-    exit 1
+MODEL_FILE="Src/Image_classifier/models/nutrisense_convnext_small_best.pth"
+if [ ! -f "$MODEL_FILE" ]; then
+    echo "  ⚠️  Not present locally (the Docker build downloads it)"
+elif head -c 40 "$MODEL_FILE" | grep -q "git-lfs"; then
+    echo "  ⚠️  Git LFS pointer only (the Docker build downloads the real file)"
+else
+    echo "  ✅ ConvNeXt model found"
 fi
-echo "  ✅ ConvNeXt model found"
 echo ""
 
 # 2. Check if Dockerfile exists
@@ -58,19 +62,18 @@ echo ""
 echo "✓ Required environment variables checklist:"
 echo "  - GROQ_API_KEY"
 echo "  - NEO4J_URI"
-echo "  - NEO4J_USERNAME"
+echo "  - NEO4J_USER"
 echo "  - NEO4J_PASSWORD"
 echo "  - FIREBASE_PROJECT_ID"
 echo "  - AUTH_SECRET_KEY"
 echo "  - ALLOWED_ORIGINS"
 echo ""
-echo "  📝 See DEPLOYMENT.md for full configuration guide"
+echo "  📝 See README.md (Environment Variables) for the full list"
 echo ""
 
 # 7. Estimate image size
 echo "✓ Estimating Docker image size..."
-CONVNEXT_SIZE=$(du -h "Src/Image_classifier/models/nutrisense_convnext_small_best.pth" | cut -f1)
-echo "  ConvNeXt model: $CONVNEXT_SIZE"
+echo "  ConvNeXt model: ~200 MB"
 echo "  Base image + deps: ~1.7 GB"
 echo "  Whisper (runtime): ~500 MB"
 echo "  Total estimate: ~2.3 GB"
@@ -80,6 +83,6 @@ echo "✅ Pre-flight checks complete!"
 echo ""
 echo "🚀 Next steps:"
 echo "   1. Build: docker build -t nutrisense-backend:latest ."
-echo "   2. Test locally with environment variables (see DEPLOYMENT.md)"
+echo "   2. Test locally with environment variables (see README.md)"
 echo "   3. Deploy to Render/Railway"
 echo ""

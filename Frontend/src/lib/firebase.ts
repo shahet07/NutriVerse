@@ -1,5 +1,5 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app'
-import { getAuth } from 'firebase/auth'
+import { getAuth, type Auth } from 'firebase/auth'
 
 function getFirebaseConfig() {
   return {
@@ -17,5 +17,13 @@ function initFirebaseApp(): FirebaseApp {
   return initializeApp(getFirebaseConfig())
 }
 
-const firebaseApp = initFirebaseApp()
-export const firebaseAuth = getAuth(firebaseApp)
+/**
+ * getAuth() throws on an empty API key, which would blank the whole app, so
+ * Firebase only starts when configured. Without it, use-auth.tsx falls back to
+ * the backend's local-development sign-in.
+ */
+export const firebaseAuth: Auth | null = getFirebaseConfig().apiKey
+  ? getAuth(initFirebaseApp())
+  : null
+
+export const isLocalAuthMode = firebaseAuth === null

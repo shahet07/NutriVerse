@@ -9,15 +9,20 @@ Src/Image_classifier/models/meta.json
 *.keras
 *.pb
 
+# Vite dependency cache
+.vite/
+
 #Extension 
 *.zip
 # Environment and secrets
 .env
 .env.*
+!.env.example
 *.json
 !package.json
 !package-lock.json
 !tsconfig.json
+!Extension/manifest.json
 *firebase*.json
 firebase-adminsdk*.json
 
@@ -40,6 +45,9 @@ __pycache__/
 
 # Jupyter notebook checkpoints
 .ipynb_checkpoints/
+
+# Ruff cache
+.ruff_cache/
 
 # Pytest cache
 .pytest_cache/

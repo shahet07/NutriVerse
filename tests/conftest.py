@@ -9,6 +9,11 @@ Fixtures provided:
 """
 from __future__ import annotations
 
+import os
+
+# Tests must not start the Whisper pre-warm (it downloads a model).
+os.environ["STT_BACKEND"] = "none"
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 

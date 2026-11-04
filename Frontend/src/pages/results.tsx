@@ -403,10 +403,11 @@ function AiBubble({
  * Returns null if no grounding context is available.
  */
 function buildFoodContext(msgs: ChatMessage[]): Record<string, unknown> | null {
-  const firstDone = msgs.find((m) => m.status === 'done' && m.result)
-  if (!firstDone?.result) return null
+  // The latest result, so follow-ups are about the dish most recently looked up.
+  const latest = [...msgs].reverse().find((m) => m.status === 'done' && m.result)
+  if (!latest?.result) return null
 
-  const r = firstDone.result
+  const r = latest.result
 
   if (isExtraction(r)) {
     return {
@@ -415,6 +416,8 @@ function buildFoodContext(msgs: ChatMessage[]): Record<string, unknown> | null {
       ...r.nutrition,
       ingredients: r.ingredients,
       instructions: r.instructions,
+      // An estimated dish has its figures only in this text.
+      ...(r.estimated ? { estimate_details: r.llm_response } : {}),
     }
   }
 
@@ -524,7 +527,20 @@ export default function Results() {
 
       try {
         const history = buildChatHistory(currentMessages)
-        const res = await chatWithProduct({ message: query, context: ctx, history })
+        const res = await chatWithProduct({
+          message: query,
+          context: ctx,
+          history,
+          allow_new_dish: true,
+        })
+        if (res.new_query) {
+          // A different dish: show its full result card, which also becomes the new context.
+          const result = await processQuery(res.new_query)
+          setMessages((prev) =>
+            prev.map((m) => (m.id === id ? { ...m, status: 'done', result } : m)),
+          )
+          return
+        }
         setMessages((prev) =>
           prev.map((m) => (m.id === id ? { ...m, status: 'done', chatReply: res.reply } : m)),
         )

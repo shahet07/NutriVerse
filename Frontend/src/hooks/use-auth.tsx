@@ -18,7 +18,13 @@ import {
   signInWithPopup,
   signOut,
 } from 'firebase/auth'
-import { configureAuthApi, loginWithFirebaseToken, refreshTokenPair } from '@/lib/api'
+import {
+  configureAuthApi,
+  devLogin,
+  loginWithFirebaseToken,
+  logoutSession,
+  refreshTokenPair,
+} from '@/lib/api'
 import {
   clearRefreshToken,
   getRefreshToken,
@@ -88,6 +94,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [accessToken, setAccessToken] = useState<string | null>(null)
   // loading:true until Firebase fires its first auth state event
   const [loading, setLoading] = useState(true)
+  // Read by api.ts. A ref, because a page's effects run before this provider's,
+  // so state would still hold the old token when the page fetches.
+  const accessTokenRef = useRef<string | null>(null)
   const bootDone = useRef(false)
   const refreshInFlight = useRef<Promise<string | null> | null>(null)
   const backendSyncInFlight = useRef(false)
@@ -101,11 +110,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null)
     } else {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(authUser))
-      setUser(authUser)
+      // Keep the same object when nothing changed: pages refetch when `user`
+      // changes, and a token refresh must not trigger another round of fetches.
+      setUser((prev) =>
+        prev &&
+        prev.email === authUser.email &&
+        prev.name === authUser.name &&
+        prev.uid === authUser.uid
+          ? prev
+          : authUser,
+      )
     }
   }, [])
 
   const applyTokenPair = useCallback(async (pair: { access_token: string; refresh_token: string }) => {
+    accessTokenRef.current = pair.access_token
     setAccessToken(pair.access_token)
     await storeRefreshToken(pair.refresh_token)
     latestRefreshToken.current = pair.refresh_token
@@ -134,6 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await applyTokenPair(pair)
         return pair.access_token
       } catch {
+        accessTokenRef.current = null
         setAccessToken(null)
         await clearRefreshToken()
         return null
@@ -152,6 +172,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Safety valve only for the pathological case where Firebase never fires at all.
     // In normal operation setLoading(false) is called synchronously inside the callback
     // (before the slow backend exchange), so this timer is a no-op.
+    if (!firebaseAuth) {
+      // Local auth mode: restore the session from the stored refresh token.
+      if (bootDone.current) return
+      bootDone.current = true
+      void (async () => {
+        const token = await refreshAccessToken()
+        if (!token) persistUser(null)
+        setLoading(false)
+      })()
+      return
+    }
+
     const safetyTimer = setTimeout(() => setLoading(false), 15_000)
 
     const unsubscribe = onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
@@ -175,6 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } else {
         persistUser(null)
+        accessTokenRef.current = null
         setAccessToken(null)
         setLoading(false)
         void clearRefreshToken()
@@ -202,15 +235,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ── Expose Bearer token to api.ts fetch interceptor ───────────────────────
   useEffect(() => {
-    configureAuthApi({ getAccessToken: () => accessToken, refreshAccessToken })
+    configureAuthApi({ getAccessToken: () => accessTokenRef.current, refreshAccessToken })
     return () => configureAuthApi(null)
-  }, [accessToken, refreshAccessToken])
+  }, [refreshAccessToken])
 
   // If Firebase session exists but backend token exchange previously failed
   // (for example backend was temporarily unavailable), auto-heal in background.
   useEffect(() => {
     if (loading || accessToken || backendSyncInFlight.current) return
-    const fbUser = firebaseAuth.currentUser
+    const fbUser = firebaseAuth?.currentUser
     if (!fbUser) return
 
     backendSyncInFlight.current = true
@@ -229,7 +262,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const retryBackendSync = async () => {
       if (loading || accessToken || backendSyncInFlight.current) return
-      const fbUser = firebaseAuth.currentUser
+      const fbUser = firebaseAuth?.currentUser
       if (!fbUser) return
 
       backendSyncInFlight.current = true
@@ -279,6 +312,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ── Public auth actions ────────────────────────────────────────────────────
 
   const loginWithEmail = useCallback(async (email: string, password: string) => {
+    if (!firebaseAuth) {
+      await applyTokenPair(await devLogin(email))
+      return
+    }
     // Firebase auth errors (wrong password etc.) throw here and surface to the UI
     const credential = await signInWithEmailAndPassword(firebaseAuth, email, password)
     const idToken = await credential.user.getIdToken(true)
@@ -289,9 +326,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const name = credential.user.displayName ?? email.split('@')[0]
       persistUser({ email, name, uid: credential.user.uid })
     }
-  }, [exchangeFirebaseToken, persistUser])
+  }, [applyTokenPair, exchangeFirebaseToken, persistUser])
 
   const registerWithEmail = useCallback(async (name: string, email: string, password: string) => {
+    if (!firebaseAuth) {
+      await applyTokenPair(await devLogin(email, name))
+      return
+    }
     // Firebase auth errors (email in use, weak password) throw here
     const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password)
     const idToken = await credential.user.getIdToken(true)
@@ -302,9 +343,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     // Caller-provided name takes priority over Firebase display name
     persistUser({ email, name, uid: credential.user.uid })
-  }, [exchangeFirebaseToken, persistUser])
+  }, [applyTokenPair, exchangeFirebaseToken, persistUser])
 
   const signInWithGoogle = useCallback(async () => {
+    if (!firebaseAuth) throw new Error('Google sign-in needs Firebase to be configured.')
     let fbUser
     if (isDesktopShell()) {
       const { idToken } = await window.desktopAuth!.googleSignIn()
@@ -335,13 +377,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [exchangeFirebaseToken, persistUser])
 
   const logout = useCallback(() => {
-    void signOut(firebaseAuth).catch(() => undefined)
+    if (accessToken && latestRefreshToken.current) {
+      void logoutSession(accessToken, latestRefreshToken.current).catch(() => undefined)
+    }
+    latestRefreshToken.current = null
+    if (firebaseAuth) void signOut(firebaseAuth).catch(() => undefined)
+    accessTokenRef.current = null
     setAccessToken(null)
     persistUser(null)
     void clearRefreshToken().catch(() => undefined)
     // Do not reset bootDone — logout state is handled here directly, not via onAuthStateChanged
     window.postMessage({ type: 'NUTRISENSE_EXT_AUTH', refreshToken: null, user: null }, window.location.origin)
-  }, [persistUser])
+  }, [accessToken, persistUser])
 
   const value = useMemo<AuthContextValue>(() => ({
     user,

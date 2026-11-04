@@ -46,6 +46,9 @@ import uuid
 import json
 
 import pandas as pd
+import argparse
+from urllib.parse import urlparse
+
 from dotenv import load_dotenv
 from neo4j import GraphDatabase
 from rapidfuzz import fuzz
@@ -311,7 +314,7 @@ def load_recipes(driver, df: pd.DataFrame) -> list[dict]:
             "calcium":        safe_float(row["Calcium (mg)"]),
             "iron":           safe_float(row["Iron (mg)"]),
             "vitamin_c":      safe_float(row["Vitamin C (mg)"]),
-            "folate":         safe_float(row["Folate (Âµg)"]),
+            "folate":         safe_float(row["Folate (µg)"]),
             "composite_score": safe_float(row["composite_score"]),
         })
 
@@ -793,6 +796,20 @@ def print_summary(driver):
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--allow-remote",
+        action="store_true",
+        help="Allow wiping a non-local database. This deletes all of its data.",
+    )
+    args = parser.parse_args()
+    # This migration starts by deleting everything in the target database.
+    is_local = urlparse(URI or "").hostname in {"localhost", "127.0.0.1", "::1"}
+    if not is_local and not args.allow_remote:
+        raise SystemExit(
+            f"Refusing to wipe non-local database {URI}. Pass --allow-remote to do this."
+        )
+
     print("=" * 65)
     print("  NutriSense-AI v2 â€” Dual Food Cluster Migration")
     print("=" * 65)
@@ -808,22 +825,26 @@ def main():
 
     # â”€â”€ Load & validate Cluster B source â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     print(f"\nLoading {PRODUCT_CSV_PATH} ...")
-    df_products_raw = pd.read_csv(PRODUCT_CSV_PATH)
-    print(f"  Raw rows in products CSV: {len(df_products_raw):,}")
+    df_products = None
+    if os.path.exists(PRODUCT_CSV_PATH):
+        df_products_raw = pd.read_csv(PRODUCT_CSV_PATH)
+        print(f"  Raw rows in products CSV: {len(df_products_raw):,}")
 
-    # Quality filter: require product_name + core macros
-    mask = (
-        df_products_raw["product_name"].notna()
-        & df_products_raw["calories_100g"].notna()
-        & df_products_raw["proteins_g_100g"].notna()
-        & df_products_raw["carbohydrates_g_100g"].notna()
-        & df_products_raw["fat_g_100g"].notna()
-    )
-    df_products = df_products_raw[mask].drop_duplicates(
-        subset=["barcode"], keep="first"
-    ).reset_index(drop=True)
-    print(f"  {len(df_products):,} product rows pass quality filter "
-          f"(name + all 4 macros present,  barcode deduplicated)")
+        # Quality filter: require product_name + core macros
+        mask = (
+            df_products_raw["product_name"].notna()
+            & df_products_raw["calories_100g"].notna()
+            & df_products_raw["proteins_g_100g"].notna()
+            & df_products_raw["carbohydrates_g_100g"].notna()
+            & df_products_raw["fat_g_100g"].notna()
+        )
+        df_products = df_products_raw[mask].drop_duplicates(
+            subset=["barcode"], keep="first"
+        ).reset_index(drop=True)
+        print(f"  {len(df_products):,} product rows pass quality filter "
+              f"(name + all 4 macros present,  barcode deduplicated)")
+    else:
+        print(f"  {PRODUCT_CSV_PATH} not found: loading recipes only.")
 
     # â”€â”€ Connect & run migration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     driver = connect()
@@ -842,9 +863,10 @@ def main():
         create_image_mappings(driver, image_classes)
 
         # â”€â”€ Cluster B â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        load_categories_and_brands(driver, df_products)
-        load_food_products(driver, df_products)
-        load_product_ingredients(driver, df_products)
+        if df_products is not None:
+            load_categories_and_brands(driver, df_products)
+            load_food_products(driver, df_products)
+            load_product_ingredients(driver, df_products)
 
         # â”€â”€ Cross-cluster allergen wiring â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         wire_allergen_relationships(driver)

@@ -19,9 +19,18 @@ from sklearn.metrics import classification_report, confusion_matrix, f1_score, a
 import matplotlib.pyplot as plt
 import csv
 
+import tensorflow as tf
+
 # local imports (ensure current working dir allows import)
-from Inference import load_model_and_meta
 from data_loader import make_datasets
+
+
+def load_model_and_meta(model_path, meta_path):
+    """Load the legacy EfficientNetB4 Keras model and its metadata."""
+    model = tf.keras.models.load_model(model_path, compile=False)
+    with open(meta_path, encoding="utf-8") as f:
+        return model, json.load(f)
+
 
 def top_k_accuracy(y_true, y_preds_probs, k=3):
     # y_preds_probs: numpy array shape (N, C)

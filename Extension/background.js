@@ -5,6 +5,13 @@
 const DEFAULT_API_URL  = 'https://nutrisense-ai-c8f2anche0b6a8be.southeastasia-01.azurewebsites.net'
 const FIREBASE_API_KEY = 'AIzaSyDs4D66TAs6PAC_QTDl4xF_6jn6SQpbozE'
 
+// Keep in sync with content_scripts.matches in manifest.json.
+const APP_URL_PATTERNS = [
+  'http://localhost:5173/*',
+  'http://localhost:8000/*',
+  'https://nutrisense-ai-c8f2anche0b6a8be.southeastasia-01.azurewebsites.net/*',
+]
+
 // ── Rate limiter ──────────────────────────────────────────────────────────────
 // 20 requests per 60-second window per user session.
 
@@ -33,10 +40,9 @@ chrome.runtime.onInstalled.addListener(async () => {
   const { apiUrl } = await chrome.storage.sync.get(['apiUrl'])
   if (!apiUrl) await chrome.storage.sync.set({ apiUrl: DEFAULT_API_URL })
 
-  // Inject content script into all open tabs so presence signals are set
-  // immediately on install without needing the broad `tabs` permission.
-  // chrome.scripting silently fails on restricted pages (chrome://, etc.).
-  const openTabs = await chrome.tabs.query({})
+  // Set the presence signal in NutriVerse tabs that were open before install.
+  // Other sites only get the content script from an explicit right-click action.
+  const openTabs = await chrome.tabs.query({ url: APP_URL_PATTERNS })
   for (const tab of openTabs) {
     if (!tab.id) continue
     chrome.scripting.executeScript({

@@ -10,6 +10,7 @@ POST /chat
 Returns a plain-text LLM reply grounded in the supplied food context.
 """
 
+import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -39,10 +40,15 @@ class ChatRequest(BaseModel):
         default_factory=list,
         description="Previous messages for multi-turn context",
     )
+    allow_new_dish: bool = Field(
+        False,
+        description="Return new_query instead of a reply when the message is about a different dish",
+    )
 
 
 class ChatResponse(BaseModel):
-    reply: str
+    reply: str = ""
+    new_query: Optional[str] = None
 
 
 # ── Endpoint ────────────────────────────────────────────────────────
@@ -55,6 +61,13 @@ async def chat(body: ChatRequest, nutri_router=Depends(get_router)):
     The LLM is grounded with the ``context`` dict (nutrition, ingredients,
     brand, category, etc.) so it can answer accurately without hallucinating.
     """
+
+    if body.allow_new_dish and body.context:
+        new_dish = await asyncio.to_thread(
+            nutri_router.find_new_dish, body.message, body.context
+        )
+        if new_dish:
+            return ChatResponse(new_query=new_dish)
 
     # Build a grounding block from the context dict
     ctx_block = ""
@@ -117,11 +130,14 @@ INSTRUCTIONS:
 3. Cite exact numbers from the context when relevant (e.g. "It has 320 kcal and 12g protein per serving").
 4. Never fabricate nutrition values that are not in the context.
 5. No meta-phrases like "Based on the context" — just answer directly by name.
-6. ALWAYS respond in English only. No emojis."""
+6. ALWAYS respond in English only. No emojis.
+7. If the question is about a different food from the context, answer about the food the user asked about and say the figures are estimates. Never answer about the context food instead."""
 
     try:
         reply = await nutri_router.voice_llm.generate_async(prompt)
         return ChatResponse(reply=reply)
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.exception("Chat generation failed: %s", exc)
         raise HTTPException(status_code=500, detail="Chat service unavailable. Please try again.")

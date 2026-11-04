@@ -23,7 +23,7 @@ from Backend.api import ai_feedback as ai_feedback_api
 from Backend.core.config import settings
 from Backend.core.lifespan import lifespan
 from Backend.dependencies.auth_user import _decode_access_token
-from Backend.dependencies.rate_limiter import current_user_uid
+from Backend.dependencies.rate_limiter import client_key, current_user_uid
 
 logging.basicConfig(
     level=logging.INFO,
@@ -82,6 +82,8 @@ async def set_user_context(request: Request, call_next):
         payload = _decode_access_token(token)
         if payload:
             uid = payload.get("sub")
+    if uid is None:
+        uid = client_key(request.client.host if request.client else None)
     tok = current_user_uid.set(uid)
     try:
         response = await call_next(request)
@@ -142,8 +144,10 @@ if settings.serve_static and os.path.isdir(settings.frontend_dir):
     @app.api_route("/{full_path:path}", methods=["GET"], include_in_schema=False)
     async def spa_fallback(request: Request, full_path: str):  # noqa: ARG001
         # First check if it's a real file in the build dir (e.g. /vite.svg)
-        candidate = os.path.join(settings.frontend_dir, full_path)
-        if full_path and os.path.isfile(candidate):
+        # realpath + prefix check: "../" must not escape the build directory.
+        root = os.path.realpath(settings.frontend_dir)
+        candidate = os.path.realpath(os.path.join(root, full_path))
+        if full_path and candidate.startswith(root + os.sep) and os.path.isfile(candidate):
             return FileResponse(candidate)
         # Otherwise serve index.html for client-side routing
         if os.path.isfile(_index_html):

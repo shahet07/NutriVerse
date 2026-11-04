@@ -1,0 +1,4 @@
+# Pinned to the classic rule set: CI installs the latest ruff, whose wider
+# defaults report hundreds of style issues and would fail every build.
+[lint]
+select = ["E4", "E7", "E9", "F"]

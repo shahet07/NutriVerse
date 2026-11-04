@@ -520,6 +520,8 @@ async def chef_parse(body: ChefParseRequest, nutri_router=Depends(get_router)):
     for attempt in range(_MAX_RETRIES):
         try:
             raw = await llm_engine.llm.generate_async(prompt)
+        except HTTPException:
+            raise
         except Exception as exc:
             logger.exception("Chef LLM generation failed (attempt %d): %s", attempt + 1, exc)
             if attempt == _MAX_RETRIES - 1:
@@ -927,6 +929,8 @@ async def chef_intent(body: ChefIntentRequest, nutri_router=Depends(get_router))
 
     try:
         raw = await nutri_router.voice_llm.generate_async(prompt)
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.exception("Chef intent LLM failed: %s", exc)
         raise HTTPException(status_code=500, detail="Voice processing unavailable.")

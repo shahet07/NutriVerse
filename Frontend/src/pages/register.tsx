@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { Eye, EyeOff, ArrowRight, Check, AlertCircle } from 'lucide-react'
 import { Logo } from '@/components/ui/logo'
 import { useAuth } from '@/hooks/use-auth'
+import { isLocalAuthMode } from '@/lib/firebase'
 import landingBg from '@/assets/landing-bg.png'
 
 const fadeUp = (delay = 0) => ({
@@ -312,6 +313,13 @@ export default function RegisterPage() {
             </motion.div>
           </form>
 
+          {isLocalAuthMode && (
+            <p className="mt-6 text-center text-xs text-white/40 font-sans">
+              Local development mode: any email works and passwords are not checked.
+            </p>
+          )}
+
+          {!isLocalAuthMode && (<>
           {/* Divider */}
           <motion.div {...fadeUp(0.58)} className="my-7 flex items-center gap-4">
             <div className="flex-1 h-px bg-white/[0.07]" />
@@ -349,6 +357,7 @@ export default function RegisterPage() {
               )}
             </motion.button>
           </motion.div>
+          </>)}
 
           {/* Login link */}
           <motion.p {...fadeUp(0.70)} className="mt-7 text-center text-sm text-white/30 font-sans">

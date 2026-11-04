@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { Eye, EyeOff, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react'
 import { Logo } from '@/components/ui/logo'
 import { useAuth } from '@/hooks/use-auth'
-import { firebaseAuth } from '@/lib/firebase'
+import { firebaseAuth, isLocalAuthMode } from '@/lib/firebase'
 import { sendPasswordResetEmail } from 'firebase/auth'
 import landingBg from '@/assets/landing-bg.png'
 
@@ -70,6 +70,7 @@ export default function LoginPage() {
     setError(null)
     setResetLoading(true)
     try {
+      if (!firebaseAuth) throw new Error('Password reset needs Firebase to be configured.')
       await sendPasswordResetEmail(firebaseAuth, resetEmail)
       setResetSent(true)
     } catch (err) {
@@ -278,6 +279,13 @@ export default function LoginPage() {
             </motion.div>
           </form>
 
+          {isLocalAuthMode && (
+            <p className="mt-6 text-center text-xs text-white/40 font-sans">
+              Local development mode: any email works and passwords are not checked.
+            </p>
+          )}
+
+          {!isLocalAuthMode && (<>
           {/* Divider */}
           <motion.div {...fadeUp(0.48)} className="my-8 flex items-center gap-4">
             <div className="flex-1 h-px bg-white/[0.07]" />
@@ -315,6 +323,7 @@ export default function LoginPage() {
               )}
             </motion.button>
           </motion.div>
+          </>)}
 
           {/* Register link */}
           <motion.p {...fadeUp(0.60)} className="mt-7 text-center text-sm text-white/30 font-sans">
